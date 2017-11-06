@@ -9,6 +9,7 @@ node *get_commands()
     int c, count = 0,
         cur_size = 1;
     char *str = NULL;
+    /* Pushing words into list */
     while ( (c = getchar()) != '\n' && c != EOF) {
         if (isspace(c)) {
             if (count > 0) {
@@ -32,7 +33,7 @@ node *get_commands()
         insert(&root, str);
     }
     if (c == EOF) {
-        insert(&root, NULL); /* Stop program sign */
+        insert(&root, NULL); /* End program sign */
     }
     return root;
 }
