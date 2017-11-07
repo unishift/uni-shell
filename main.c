@@ -26,7 +26,7 @@ int main(int argc, char **argv)
             }
             printf("%s ", p->str);
         }
-        putchar('\n');
+        if (!eof) putchar('\n');
         delete_list(cmd_list);
     } 
     return 0;
