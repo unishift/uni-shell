@@ -2,6 +2,9 @@
 
 all: uni-shell
 
+clean: 
+	rm main.o list.o parser.o uni-shell
+
 uni-shell: main.o list.o parser.o
 	gcc -o uni-shell -Wall -fsanitize=address -g main.o list.o parser.o
 
