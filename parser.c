@@ -13,7 +13,7 @@ char **get_command()
     /* Pushing words into list */
     int quote = 0;
     int c = getchar();
-    while (quote || (c != '\n' && c != EOF)) {
+    while (c != EOF && (quote || c != '\n')) {
         if (c == '\"') {
             quote = !quote;
             c = getchar();

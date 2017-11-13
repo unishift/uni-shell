@@ -28,14 +28,6 @@ int main(int argc, char **argv)
             free(cmd);
         }
         if (feof(stdin)) break;
-        /* for (node *p = cmd_list; p != NULL; p = p->next) { */
-        /*     if (p->str == NULL) { */
-        /*         eof = 1; */
-        /*         continue; */
-        /*     } */
-        /*     printf("%s ", p->str); */
-        /* } */
-        /* if (!eof) putchar('\n'); */
     } 
     return 0;
 }
