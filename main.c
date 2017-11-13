@@ -3,6 +3,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/wait.h>
 #include "parser.h"
 
 int main(int argc, char **argv)
@@ -19,9 +20,22 @@ int main(int argc, char **argv)
     while (!eof) {
         char **cmd = get_command();
         if (cmd != NULL) {
-            for (int i = 0; cmd[i] != NULL; i++) {
-                printf("%s ", cmd[i]);
+            /* Command execution */
+            if (fork() > 0) {
+                int status;
+                wait(&status);
+                /* printf("Process exited with code %d\n", status); */
             }
+            else {
+                execvp(cmd[0], cmd);
+                /* Free memory */
+                for (int i = 0; cmd[i] != NULL; i++) {
+                    free(cmd[i]);
+                }
+                free(cmd);
+                return 1;
+            }
+            /* Free memory */
             for (int i = 0; cmd[i] != NULL; i++) {
                 free(cmd[i]);
             }
