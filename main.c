@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/wait.h>
+
 #include "parser.h"
 
 int main(int argc, char **argv)
@@ -24,10 +24,11 @@ int main(int argc, char **argv)
             if (fork() > 0) {
                 int status;
                 wait(&status);
-                /* printf("Process exited with code %d\n", status); */
+                /* printf("[ Process exited with code %d ]\n", status); */
             }
             else {
                 execvp(cmd[0], cmd);
+                /* printf("Process didn't start due to some error\n"); */
                 /* Free memory */
                 for (int i = 0; cmd[i] != NULL; i++) {
                     free(cmd[i]);
