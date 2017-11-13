@@ -3,7 +3,6 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include "list.h"
 #include "parser.h"
 
 int main(int argc, char **argv)
@@ -18,16 +17,25 @@ int main(int argc, char **argv)
     }
     int eof = 0;
     while (!eof) {
-        node *cmd_list = get_commands();
-        for (node *p = cmd_list; p != NULL; p = p->next) {
-            if (p->str == NULL) {
-                eof = 1;
-                continue;
+        char **cmd = get_command();
+        if (cmd != NULL) {
+            for (int i = 0; cmd[i] != NULL; i++) {
+                printf("%s ", cmd[i]);
             }
-            printf("%s ", p->str);
+            for (int i = 0; cmd[i] != NULL; i++) {
+                free(cmd[i]);
+            }
+            free(cmd);
         }
-        if (!eof) putchar('\n');
-        delete_list(cmd_list);
+        if (feof(stdin)) break;
+        /* for (node *p = cmd_list; p != NULL; p = p->next) { */
+        /*     if (p->str == NULL) { */
+        /*         eof = 1; */
+        /*         continue; */
+        /*     } */
+        /*     printf("%s ", p->str); */
+        /* } */
+        /* if (!eof) putchar('\n'); */
     } 
     return 0;
 }

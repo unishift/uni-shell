@@ -3,17 +3,14 @@
 #include <ctype.h>
 #include "parser.h"
 
-node *get_commands()
+char **get_command()
 {
-    node *root = NULL;
+    char **strings = NULL;
     int count = 0,
-        cur_size = 1;
+        str_size = 1,
+        num_of_args = 0;
     char *str = NULL;
-<<<<<<< HEAD
     /* Pushing words into list */
-    while ( (c = getchar()) != '\n' && c != EOF) {
-        if (isspace(c)) {
-=======
     int quote = 0;
     int c = getchar();
     while (quote || (c != '\n' && c != EOF)) {
@@ -23,31 +20,36 @@ node *get_commands()
             continue;
         }
         if (!quote && isspace(c)) {
->>>>>>> 329c86ff9cabea784dbc28f4e0348a7ea59c9bad
             if (count > 0) {
                 str[count] = '\0';
-                insert(&root, str);
+                num_of_args++;
+                strings = (char**)realloc(strings, num_of_args * sizeof(char*));
+                strings[num_of_args-1] = str;
+                str = NULL;
+                count = 0;
+                str_size = 1;
             }
-            count = 0;
-            cur_size = 1;
-            str = NULL;
             c = getchar();
             continue;
         }
         count++;
-        if (count == cur_size) {
-            cur_size += 10;
-            str = (char*)realloc(str, cur_size * sizeof(char));
+        if (count == str_size) {
+            str_size += 10;
+            str = (char*)realloc(str, str_size * sizeof(char));
         }
         str[count-1] = c;
         c = getchar();
     }
     if (count > 0) {
         str[count] = '\0';
-        insert(&root, str);
+        num_of_args++;
+        strings = (char**)realloc(strings, num_of_args * sizeof(char*));
+        strings[num_of_args-1] = str;
     }
-    if (c == EOF) {
-        insert(&root, NULL); /* End program sign */
+    if (strings != NULL) {
+        num_of_args++;
+        strings = (char**)realloc(strings, num_of_args * sizeof(char*));
+        strings[num_of_args-1] = NULL;
     }
-    return root;
+    return strings;
 }

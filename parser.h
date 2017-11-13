@@ -2,4 +2,4 @@
 
 #include "list.h"
 
-node *get_commands();
+char **get_command();
