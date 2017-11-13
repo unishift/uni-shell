@@ -21,20 +21,24 @@ int main(int argc, char **argv)
         char **cmd = get_command();
         if (cmd != NULL) {
             /* Command execution */
-            if (fork() > 0) {
+            pid_t child;
+            if ( (child = fork()) > 0) { /* Parent branch */
                 int status;
                 wait(&status);
                 /* printf("[ Process exited with code %d ]\n", status); */
             }
-            else {
+            else if (child == 0) { /* Child branch */
                 execvp(cmd[0], cmd);
-                /* printf("Process didn't start due to some error\n"); */
+                printf("Error: Process didn't start\n");
                 /* Free memory */
                 for (int i = 0; cmd[i] != NULL; i++) {
                     free(cmd[i]);
                 }
                 free(cmd);
                 return 1;
+            }
+            else { /* Error branch */
+                printf("Error: Couldn't create new process\n");
             }
             /* Free memory */
             for (int i = 0; cmd[i] != NULL; i++) {
