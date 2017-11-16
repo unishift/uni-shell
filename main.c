@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-#include "parser.h"
+#include "utils.h"
 
 int main(int argc, char **argv)
 {
@@ -16,13 +16,15 @@ int main(int argc, char **argv)
         }
         dup2(fd, 0);
     }
-    int eof = 0;
-    while (!eof) {
+
+    while (1) {
+        /* printf("%s %s $ ", getenv("USER"), getenv("PWD")); */
+        printf("$ ");
         char **cmd = get_command();
         if (cmd != NULL) {
             /* Command execution */
             pid_t child;
-            if ( (child = fork()) > 0) { /* Parent branch */
+            if ((child = fork()) > 0) { /* Parent branch */
                 int status;
                 wait(&status);
                 /* printf("[ Process exited with code %d ]\n", status); */
@@ -36,7 +38,7 @@ int main(int argc, char **argv)
                 }
                 free(cmd);
                 return 1;
-            }
+            } 
             else { /* Error branch */
                 printf("Error: Couldn't create new process\n");
             }

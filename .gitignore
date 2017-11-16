@@ -1,4 +1,5 @@
 tests/
+test.sh
 *.swp
 *.pdf
 *.o
