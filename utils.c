@@ -63,16 +63,11 @@ int execute_command(char **cmd)
     }
     else if (child == 0) { /* Child branch */
         execvp(cmd[0], cmd);
-        printf("Error: Process didn't start\n");
-        /* Free memory */
-        for (int i = 0; cmd[i] != NULL; i++) {
-            free(cmd[i]);
-        }
-        free(cmd);
-        return -1;
+        perror("Error");
+        exit(1);
     } 
     else { /* Error branch */
-        printf("Error: Couldn't create new process\n");
-        return -1;
+        perror("Error");
+        exit(1);
     }
 }
