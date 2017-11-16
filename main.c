@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <sys/wait.h>
 
 #include "utils.h"
 
@@ -16,32 +15,14 @@ int main(int argc, char **argv)
         }
         dup2(fd, 0);
     }
-
+    /* */
     while (1) {
         /* printf("%s %s $ ", getenv("USER"), getenv("PWD")); */
         printf("$ ");
         char **cmd = get_command();
         if (cmd != NULL) {
             /* Command execution */
-            pid_t child;
-            if ((child = fork()) > 0) { /* Parent branch */
-                int status;
-                wait(&status);
-                /* printf("[ Process exited with code %d ]\n", status); */
-            }
-            else if (child == 0) { /* Child branch */
-                execvp(cmd[0], cmd);
-                printf("Error: Process didn't start\n");
-                /* Free memory */
-                for (int i = 0; cmd[i] != NULL; i++) {
-                    free(cmd[i]);
-                }
-                free(cmd);
-                return 1;
-            } 
-            else { /* Error branch */
-                printf("Error: Couldn't create new process\n");
-            }
+            execute_command(cmd);
             /* Free memory */
             for (int i = 0; cmd[i] != NULL; i++) {
                 free(cmd[i]);

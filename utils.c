@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <unistd.h>
+#include <sys/wait.h>
 
 #include "utils.h"
 
@@ -49,4 +51,28 @@ char **get_command()
         strings[num_of_args-1] = NULL;
     }
     return strings;
+}
+
+int execute_command(char **cmd)
+{
+    pid_t child;
+    if ((child = fork()) > 0) {
+        int status;
+        wait(&status);
+        return status;
+    }
+    else if (child == 0) { /* Child branch */
+        execvp(cmd[0], cmd);
+        printf("Error: Process didn't start\n");
+        /* Free memory */
+        for (int i = 0; cmd[i] != NULL; i++) {
+            free(cmd[i]);
+        }
+        free(cmd);
+        return -1;
+    } 
+    else { /* Error branch */
+        printf("Error: Couldn't create new process\n");
+        return -1;
+    }
 }
