@@ -65,6 +65,14 @@ int execute_command(char **cmd)
          }
          return status;
     }
+    if (strcmp(cmd[0], "exit") == 0) {
+        for (int i = 0; cmd[i] != NULL; i++) {
+            free(cmd[i]);
+        }
+        free(cmd);
+
+        exit(0);
+    }
     pid_t child;
     if ((child = fork()) > 0) {
         wait(&status);
