@@ -3,7 +3,9 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <string.h>
 
+#include "inbuilt.h"
 #include "utils.h"
 
 char **get_command()
@@ -55,9 +57,16 @@ char **get_command()
 
 int execute_command(char **cmd)
 {
+    int status;
+    if (strcmp(cmd[0], "cd") == 0) {
+         status = cd(cmd + 1);
+         if (status == -1){
+             perror("Error");
+         }
+         return status;
+    }
     pid_t child;
     if ((child = fork()) > 0) {
-        int status;
         wait(&status);
         return status;
     }
