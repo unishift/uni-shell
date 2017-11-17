@@ -7,7 +7,9 @@
 
 int main(int argc, char **argv)
 {
+    int fr_file = 0;
     if (argc > 1) { /* Replace stdin with file from argv[1] */ 
+        fr_file = 1;
         int fd = open(argv[1], O_RDONLY);
         if (fd == -1) {
             perror("Error");
@@ -16,9 +18,10 @@ int main(int argc, char **argv)
         dup2(fd, 0);
     }
     /* */
-    while (1) {
-        /* printf("%s %s $ ", getenv("USER"), getenv("PWD")); */
-        printf("$ ");
+    while (!feof(stdin)) {
+        if (!fr_file) {
+            print_cwd_name();
+        }
         char **cmd = get_command();
         if (cmd != NULL) {
             /* Command execution */
@@ -29,7 +32,6 @@ int main(int argc, char **argv)
             }
             free(cmd);
         }
-        if (feof(stdin)) break;
     } 
     return 0;
 }
