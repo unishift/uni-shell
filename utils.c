@@ -89,7 +89,7 @@ int execute_command(char **cmd)
     }
 }
 
-void print_cwd_name()
+char *get_cwd_name()
 {
     int size = 256;
     char *cur_dir = (char*)calloc(size, sizeof(char));
@@ -97,17 +97,5 @@ void print_cwd_name()
         size += 100;
         cur_dir = (char*)realloc(cur_dir, size * sizeof(char));
     }
-    int shift;
-    for (int i = 0; cur_dir[i] != '\0'; i++) {
-        if (cur_dir[i] == '/') {
-            shift = i;
-        }
-    }
-    if (cur_dir[shift + 1] == '\0') {
-        printf("/ $ ");
-    }
-    else {
-        printf("..%s $ ", cur_dir + shift);
-    }
-    free(cur_dir);
+    return cur_dir;
 }

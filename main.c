@@ -20,7 +20,20 @@ int main(int argc, char **argv)
     /* */
     while (!feof(stdin)) {
         if (!fr_file) {
-            print_cwd_name();
+            char *cur_dir = get_cwd_name();
+            int shift;
+            for (int i = 0; cur_dir[i] != '\0'; i++) {
+                if (cur_dir[i] == '/') {
+                    shift = i;
+                }
+            }
+            if (cur_dir[1] == '\0') { /* Root directory */
+                printf("[ / ]$ ");
+            }
+            else {
+                printf("[ %s ]$ ", cur_dir + shift + 1);
+            }
+            free(cur_dir);
         }
         char **cmd = get_command();
         if (cmd != NULL) {
@@ -32,6 +45,6 @@ int main(int argc, char **argv)
             }
             free(cmd);
         }
-    } 
+    }
     return 0;
 }
