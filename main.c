@@ -35,15 +35,17 @@ int main(int argc, char **argv)
             }
             free(cur_dir);
         }
-        char **cmd = get_command();
-        if (cmd != NULL) {
+        command cmd = get_command();
+        if (cmd.argv != NULL) {
             /* Command execution */
             execute_command(cmd);
             /* Free memory */
-            for (int i = 0; cmd[i] != NULL; i++) {
-                free(cmd[i]);
+            for (int i = 0; cmd.argv[i] != NULL; i++) {
+                free(cmd.argv[i]);
             }
-            free(cmd);
+            free(cmd.argv);
+            free(cmd.input_file);
+            free(cmd.output_file);
         }
     }
     return 0;

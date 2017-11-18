@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <string.h>
+#include <fcntl.h>
 
 #include "inbuilt.h"
 #include "utils.h"
@@ -29,12 +30,12 @@ token get_word(char **ptr)
                 case '\"':
                     quote = 1;
                     continue;
-                /* case '<': */
-                /*     if (*ptr != NULL) (*ptr)[count] = '\0'; */
-                /*     return IN; */
-                /* case '>': */
-                /*     if (*ptr != NULL) (*ptr)[count] = '\0'; */
-                /*     return OUT; */
+                case '<':
+                    if (*ptr != NULL) (*ptr)[count] = '\0';
+                    return IN;
+                case '>':
+                    if (*ptr != NULL) (*ptr)[count] = '\0';
+                    return OUT;
                 case EOF: case '\n':
                     if (*ptr != NULL) (*ptr)[count] = '\0';
                     return END;
@@ -60,11 +61,13 @@ token get_word(char **ptr)
     return END;
 }
 
-char **get_command()
+command get_command()
 {
     char **strings = NULL;
     int num_of_args = 0;
     char *str = NULL;
+    char *in_file = NULL;
+    char *out_file = NULL;
     token tk;
     do {
         tk = get_word(&str);
@@ -73,6 +76,27 @@ char **get_command()
             strings = (char**)realloc(strings, num_of_args * sizeof(char*));
             strings[num_of_args-1] = str;
         }
+        switch (tk) {
+            case IN:
+                tk = get_word(&str);
+                if (str != NULL) {
+                    in_file = str;
+                }
+                else {
+                    /* Syntax error */
+                }
+                break;
+            case OUT:
+                tk = get_word(&str);
+                if (str != NULL) {
+                    out_file = str;
+                }
+                else {
+                    /* Syntax error */
+                }
+                break;
+            default: ;
+        }
     } while (tk != END);
     
     if (num_of_args > 0) {
@@ -80,24 +104,28 @@ char **get_command()
         strings = (char**)realloc(strings, num_of_args * sizeof(char*));
         strings[num_of_args-1] = NULL;
     }
-    return strings;
+    
+    command tmp = { strings, in_file, out_file };
+    return tmp;
 }
 
-int execute_command(char **cmd)
+int execute_command(command cmd)
 {
     int status;
-    if (strcmp(cmd[0], "cd") == 0) {
-         status = cd(cmd + 1);
+    if (strcmp(cmd.argv[0], "cd") == 0) {
+         status = cd(cmd.argv + 1);
          if (status == -1){
              perror("Error");
          }
          return status;
     }
-    if (strcmp(cmd[0], "exit") == 0) {
-        for (int i = 0; cmd[i] != NULL; i++) {
-            free(cmd[i]);
+    if (strcmp(cmd.argv[0], "exit") == 0) {
+        for (int i = 0; cmd.argv[i] != NULL; i++) {
+            free(cmd.argv[i]);
         }
-        free(cmd);
+        free(cmd.argv);
+        free(cmd.input_file);
+        free(cmd.output_file);
 
         exit(0);
     }
@@ -107,7 +135,17 @@ int execute_command(char **cmd)
         return status;
     }
     else if (child == 0) { /* Child branch */
-        execvp(cmd[0], cmd);
+        if (cmd.input_file != NULL) {
+            int fd = open(cmd.input_file, O_RDONLY);
+            dup2(fd, 0);
+            free(cmd.input_file);
+        }
+        if (cmd.output_file != NULL) {
+            int fd = open(cmd.output_file, O_WRONLY | O_TRUNC | O_CREAT, 0666);
+            dup2(fd, 1);
+            free(cmd.output_file);
+        }
+        execvp(cmd.argv[0], cmd.argv);
         perror("Error");
         exit(1);
     } 
