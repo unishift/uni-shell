@@ -13,8 +13,24 @@ typedef enum token {
     WORD,
     IN, /* Input stream redirection */
     OUT, /* Output stream redirection */
+    /* CON, #<{(| Conveyor |)}># */
     END
 } token;
+
+
+void free_cmd(command *cmd)
+{
+    if (cmd->next != NULL) free_cmd(cmd->next);
+    if (cmd->argv != NULL) {
+        for (int i = 0; cmd->argv[i] != NULL; i++) {
+            free(cmd->argv[i]);
+        }
+        free(cmd->argv);
+    }
+    free(cmd->input_file);
+    free(cmd->output_file);
+    free(cmd);
+}
 
 token get_word(char **ptr)
 {
@@ -36,6 +52,9 @@ token get_word(char **ptr)
                 case '>':
                     if (*ptr != NULL) (*ptr)[count] = '\0';
                     return OUT;
+                /* case '|': */
+                /*     if (*ptr != NULL) (*ptr)[count] = '\0'; */
+                /*     return CON; */
                 case EOF: case '\n':
                     if (*ptr != NULL) (*ptr)[count] = '\0';
                     return END;
@@ -61,26 +80,28 @@ token get_word(char **ptr)
     return END;
 }
 
-command get_command()
+command *get_command()
 {
-    char **strings = NULL;
+    command *tmp = (command*)malloc(sizeof(command));
+    tmp->argv = NULL;
+    tmp->input_file = NULL;
+    tmp->output_file = NULL;
+    tmp->next = NULL;
     int num_of_args = 0;
     char *str = NULL;
-    char *in_file = NULL;
-    char *out_file = NULL;
     token tk;
     do {
         tk = get_word(&str);
         if (str != NULL) {
             num_of_args++;
-            strings = (char**)realloc(strings, num_of_args * sizeof(char*));
-            strings[num_of_args-1] = str;
+            tmp->argv = (char**)realloc(tmp->argv, num_of_args * sizeof(char*));
+            tmp->argv[num_of_args-1] = str;
         }
         switch (tk) {
             case IN:
                 tk = get_word(&str);
                 if (str != NULL) {
-                    in_file = str;
+                    tmp->input_file = str;
                 }
                 else {
                     /* Syntax error */
@@ -89,7 +110,7 @@ command get_command()
             case OUT:
                 tk = get_word(&str);
                 if (str != NULL) {
-                    out_file = str;
+                    tmp->output_file = str;
                 }
                 else {
                     /* Syntax error */
@@ -98,35 +119,28 @@ command get_command()
             default: ;
         }
     } while (tk != END);
-    
+    /* End of array */
     if (num_of_args > 0) {
         num_of_args++;
-        strings = (char**)realloc(strings, num_of_args * sizeof(char*));
-        strings[num_of_args-1] = NULL;
+        tmp->argv = (char**)realloc(tmp->argv, num_of_args * sizeof(char*));
+        tmp->argv[num_of_args-1] = NULL;
     }
-    
-    command tmp = { strings, in_file, out_file };
+    /* */
     return tmp;
 }
 
-int execute_command(command cmd)
+int execute_command(command *cmd)
 {
     int status;
-    if (strcmp(cmd.argv[0], "cd") == 0) {
-         status = cd(cmd.argv + 1);
+    if (strcmp(cmd->argv[0], "cd") == 0) {
+         status = cd(cmd->argv + 1);
          if (status == -1){
              perror("Error");
          }
          return status;
     }
-    if (strcmp(cmd.argv[0], "exit") == 0) {
-        for (int i = 0; cmd.argv[i] != NULL; i++) {
-            free(cmd.argv[i]);
-        }
-        free(cmd.argv);
-        free(cmd.input_file);
-        free(cmd.output_file);
-
+    if (strcmp(cmd->argv[0], "exit") == 0) {
+        free_cmd(cmd);
         exit(0);
     }
     pid_t child;
@@ -135,17 +149,17 @@ int execute_command(command cmd)
         return status;
     }
     else if (child == 0) { /* Child branch */
-        if (cmd.input_file != NULL) {
-            int fd = open(cmd.input_file, O_RDONLY);
+        if (cmd->input_file != NULL) {
+            int fd = open(cmd->input_file, O_RDONLY);
             dup2(fd, 0);
-            free(cmd.input_file);
+            free(cmd->input_file);
         }
-        if (cmd.output_file != NULL) {
-            int fd = open(cmd.output_file, O_WRONLY | O_TRUNC | O_CREAT, 0666);
+        if (cmd->output_file != NULL) {
+            int fd = open(cmd->output_file, O_WRONLY | O_TRUNC | O_CREAT, 0666);
             dup2(fd, 1);
-            free(cmd.output_file);
+            free(cmd->output_file);
         }
-        execvp(cmd.argv[0], cmd.argv);
+        execvp(cmd->argv[0], cmd->argv);
         perror("Error");
         exit(1);
     } 
