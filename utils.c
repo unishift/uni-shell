@@ -8,46 +8,74 @@
 #include "inbuilt.h"
 #include "utils.h"
 
+typedef enum token {
+    WORD,
+    IN, /* Input stream redirection */
+    OUT, /* Output stream redirection */
+    END
+} token;
+
+token get_word(char **ptr)
+{
+    *ptr = NULL;
+    int str_size = 1;
+    int quote = 0;
+    int count = 0;
+    int c;
+    while (isspace(c = getchar())); /* Skip spaces */
+    do {
+        if (!quote) {
+            switch (c) {
+                case '\"':
+                    quote = 1;
+                    continue;
+                /* case '<': */
+                /*     if (*ptr != NULL) (*ptr)[count] = '\0'; */
+                /*     return IN; */
+                /* case '>': */
+                /*     if (*ptr != NULL) (*ptr)[count] = '\0'; */
+                /*     return OUT; */
+                case EOF: case '\n':
+                    if (*ptr != NULL) (*ptr)[count] = '\0';
+                    return END;
+            }
+            if (isspace(c)) {
+                if (*ptr != NULL) (*ptr)[count] = '\0';
+                return WORD;
+            }
+        }
+        else if (c == '\"') {
+            quote = 0;
+            continue;
+        }
+        count++;
+        if (count == str_size) {
+            str_size += 10;
+            *ptr = (char*)realloc(*ptr, str_size * sizeof(char));
+        }
+        (*ptr)[count-1] = c;
+    } while ((c = getchar()) != EOF);
+    /* EOF encountered */
+    (*ptr)[count] = '\0';
+    return END;
+}
+
 char **get_command()
 {
     char **strings = NULL;
-    int count = 0,
-        str_size = 1,
-        num_of_args = 0;
+    int num_of_args = 0;
     char *str = NULL;
-    /* Filling array with words */
-    int quote = 0;
-    int c;
-    while ((c = getchar()) != EOF && (quote || c != '\n')) {
-        if (c == '\"') {
-            quote = !quote;
-        }
-        else if (!quote && isspace(c)) {
-            if (count == 0) continue;
-            str[count] = '\0';
+    token tk;
+    do {
+        tk = get_word(&str);
+        if (str != NULL) {
             num_of_args++;
             strings = (char**)realloc(strings, num_of_args * sizeof(char*));
             strings[num_of_args-1] = str;
-            str = NULL;
-            count = 0;
-            str_size = 1;
         }
-        else {
-            count++;
-            if (count == str_size) {
-                str_size += 10;
-                str = (char*)realloc(str, str_size * sizeof(char));
-            }
-            str[count-1] = c;
-        }
-    }
-    if (count > 0) {
-        str[count] = '\0';
-        num_of_args++;
-        strings = (char**)realloc(strings, num_of_args * sizeof(char*));
-        strings[num_of_args-1] = str;
-    }
-    if (strings != NULL) {
+    } while (tk != END);
+    
+    if (num_of_args > 0) {
         num_of_args++;
         strings = (char**)realloc(strings, num_of_args * sizeof(char*));
         strings[num_of_args-1] = NULL;
