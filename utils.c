@@ -27,8 +27,6 @@ void free_cmd(command *cmd)
         }
         free(cmd->argv);
     }
-    free(cmd->input_file);
-    free(cmd->output_file);
     free(cmd);
 }
 
@@ -84,8 +82,8 @@ command *get_command()
 {
     command *tmp = (command*)malloc(sizeof(command));
     tmp->argv = NULL;
-    tmp->input_file = NULL;
-    tmp->output_file = NULL;
+    tmp->input_file = -1;
+    tmp->output_file = -1;
     tmp->next = NULL;
     int num_of_args = 0;
     char *str = NULL;
@@ -101,7 +99,15 @@ command *get_command()
             case IN:
                 tk = get_word(&str);
                 if (str != NULL) {
-                    tmp->input_file = str;
+                    int fd = open(str, O_RDONLY);
+                    free(str);
+                    if (fd != -1) {
+                        if (tmp->input_file != -1) close(tmp->input_file);
+                        tmp->input_file = fd;
+                    }
+                    else {
+                        /* Error handle */
+                    }
                 }
                 else {
                     /* Syntax error */
@@ -110,7 +116,15 @@ command *get_command()
             case OUT:
                 tk = get_word(&str);
                 if (str != NULL) {
-                    tmp->output_file = str;
+                    int fd = open(str, O_WRONLY | O_TRUNC | O_CREAT, 0666);
+                    free(str);
+                    if (fd != -1) {
+                        if (tmp->output_file != -1) close(tmp->output_file);
+                        tmp->output_file = fd;
+                    }
+                    else {
+                        /* Error handle */
+                    }
                 }
                 else {
                     /* Syntax error */
@@ -149,15 +163,11 @@ int execute_command(command *cmd)
         return status;
     }
     else if (child == 0) { /* Child branch */
-        if (cmd->input_file != NULL) {
-            int fd = open(cmd->input_file, O_RDONLY);
-            dup2(fd, 0);
-            free(cmd->input_file);
+        if (cmd->input_file != -1) { /* Input redirection */
+            dup2(cmd->input_file, 0);
         }
-        if (cmd->output_file != NULL) {
-            int fd = open(cmd->output_file, O_WRONLY | O_TRUNC | O_CREAT, 0666);
-            dup2(fd, 1);
-            free(cmd->output_file);
+        if (cmd->output_file != -1) { /* Output redirection */
+            dup2(cmd->output_file, 1);
         }
         execvp(cmd->argv[0], cmd->argv);
         perror("Error");

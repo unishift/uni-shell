@@ -2,8 +2,8 @@
 
 typedef struct command {
     char **argv;
-    char *input_file;
-    char *output_file;
+    int input_file;
+    int output_file;
     struct command *next;
 } command;
 
