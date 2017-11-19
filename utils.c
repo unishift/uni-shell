@@ -21,12 +21,10 @@ typedef enum token {
 void free_cmd(command *cmd)
 {
     if (cmd->next != NULL) free_cmd(cmd->next);
-    if (cmd->argv != NULL) {
-        for (int i = 0; cmd->argv[i] != NULL; i++) {
-            free(cmd->argv[i]);
-        }
-        free(cmd->argv);
+    for (int i = 0; cmd->argv[i] != NULL; i++) {
+        free(cmd->argv[i]);
     }
+    free(cmd->argv);
     free(cmd);
 }
 
@@ -83,13 +81,14 @@ command *get_command()
     /* Init command */
     command *root = (command*)malloc(sizeof(command));
     command *tmp = root;
-    tmp->argv = NULL;
+    tmp->argv = (char**)malloc(sizeof(char*));
+    tmp->argv[0] = NULL;
     tmp->input_file = -1;
     tmp->output_file = -1;
     tmp->next = NULL;
     /* */
     int dont_stop = 0;
-    int num_of_args = 0;
+    int num_of_args = 1; /* With last NULL */
     char *str = NULL;
     token tk;
     do {
@@ -98,7 +97,8 @@ command *get_command()
             dont_stop = 0;
             num_of_args++;
             tmp->argv = (char**)realloc(tmp->argv, num_of_args * sizeof(char*));
-            tmp->argv[num_of_args-1] = str;
+            tmp->argv[num_of_args-2] = str;
+            tmp->argv[num_of_args-1] = NULL;
         }
         int fd[2];
         switch (tk) {
@@ -111,12 +111,16 @@ command *get_command()
                         if (tmp->input_file != -1) close(tmp->input_file);
                         tmp->input_file = fd;
                     }
-                    else {
-                        /* Error handle */
+                    else { /* Error handle */
+                        perror("Error");
+                        free_cmd(root);
+                        return NULL;
                     }
                 }
-                else {
-                    /* Syntax error */
+                else { /* Syntax error */
+                    fprintf(stderr, "Error: unexpected EOF\n");
+                    free_cmd(root);
+                    return NULL;
                 }
                 break;
             case OUT:
@@ -128,42 +132,39 @@ command *get_command()
                         if (tmp->output_file != -1) close(tmp->output_file);
                         tmp->output_file = fd;
                     }
-                    else {
-                        /* Error handle */
+                    else { /* Error handle */
+                        perror("Error");
+                        free_cmd(root);
+                        return NULL;
                     }
                 }
-                else {
-                    /* Syntax error */
+                else { /* Syntax error */
+                    fprintf(stderr, "Error: unexpected EOF\n");
+                    free_cmd(root);
+                    return NULL;
                 }
                 break;
             case CON:
                 dont_stop = 1;
                 pipe(fd);
                 tmp->output_file = fd[1];
-                if (num_of_args > 0) {
-                    num_of_args++;
-                    tmp->argv = (char**)realloc(tmp->argv, num_of_args * sizeof(char*));
-                    tmp->argv[num_of_args-1] = NULL;
-                }
                 /* Init next command */
                 tmp = tmp->next = (command*)malloc(sizeof(command));
                 tmp->input_file = fd[0];
                 tmp->output_file = -1;
                 tmp->argv = NULL;
                 tmp->next = NULL;
-                num_of_args = 0;
+                num_of_args = 1;
                 break;
-            default: 
+            default:
                 if (dont_stop) putchar('>');
         }
     } while (tk != END || dont_stop);
-    /* End of array */
-    if (num_of_args > 0) {
-        num_of_args++;
-        tmp->argv = (char**)realloc(tmp->argv, num_of_args * sizeof(char*));
-        tmp->argv[num_of_args-1] = NULL;
-    }
     /* */
+    if (root->argv[0] == NULL) {
+        free_cmd(root);
+        root = NULL;
+    }
     return root;
 }
 

@@ -37,10 +37,9 @@ int main(int argc, char **argv)
         }
         /* */
         command *cmd = get_command();
+        if (cmd == NULL) continue;
         /* Command execution */
-        if (cmd->argv != NULL) {
-            execute_command(cmd);
-        }
+        execute_command(cmd);
         /* Free memory */
         free_cmd(cmd);
     }
