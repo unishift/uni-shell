@@ -13,7 +13,7 @@ typedef enum token {
     WORD,
     IN, /* Input stream redirection */
     OUT, /* Output stream redirection */
-    /* CON, #<{(| Conveyor |)}># */
+    CON, /* Conveyor */
     END
 } token;
 
@@ -37,7 +37,7 @@ token get_word(char **ptr)
     int quote = 0;
     int count = 0;
     int c;
-    while (isspace(c = getchar())); /* Skip spaces */
+    while (isspace(c = getchar()) && c != '\n'); /* Skip spaces */
     do {
         if (!quote) {
             switch (c) {
@@ -50,9 +50,9 @@ token get_word(char **ptr)
                 case '>':
                     if (*ptr != NULL) (*ptr)[count] = '\0';
                     return OUT;
-                /* case '|': */
-                /*     if (*ptr != NULL) (*ptr)[count] = '\0'; */
-                /*     return CON; */
+                case '|':
+                    if (*ptr != NULL) (*ptr)[count] = '\0';
+                    return CON;
                 case EOF: case '\n':
                     if (*ptr != NULL) (*ptr)[count] = '\0';
                     return END;
@@ -80,21 +80,27 @@ token get_word(char **ptr)
 
 command *get_command()
 {
-    command *tmp = (command*)malloc(sizeof(command));
+    /* Init command */
+    command *root = (command*)malloc(sizeof(command));
+    command *tmp = root;
     tmp->argv = NULL;
     tmp->input_file = -1;
     tmp->output_file = -1;
     tmp->next = NULL;
+    /* */
+    int dont_stop = 0;
     int num_of_args = 0;
     char *str = NULL;
     token tk;
     do {
         tk = get_word(&str);
         if (str != NULL) {
+            dont_stop = 0;
             num_of_args++;
             tmp->argv = (char**)realloc(tmp->argv, num_of_args * sizeof(char*));
             tmp->argv[num_of_args-1] = str;
         }
+        int fd[2];
         switch (tk) {
             case IN:
                 tk = get_word(&str);
@@ -130,9 +136,27 @@ command *get_command()
                     /* Syntax error */
                 }
                 break;
-            default: ;
+            case CON:
+                dont_stop = 1;
+                pipe(fd);
+                tmp->output_file = fd[1];
+                if (num_of_args > 0) {
+                    num_of_args++;
+                    tmp->argv = (char**)realloc(tmp->argv, num_of_args * sizeof(char*));
+                    tmp->argv[num_of_args-1] = NULL;
+                }
+                /* Init next command */
+                tmp = tmp->next = (command*)malloc(sizeof(command));
+                tmp->input_file = fd[0];
+                tmp->output_file = -1;
+                tmp->argv = NULL;
+                tmp->next = NULL;
+                num_of_args = 0;
+                break;
+            default: 
+                if (dont_stop) putchar('>');
         }
-    } while (tk != END);
+    } while (tk != END || dont_stop);
     /* End of array */
     if (num_of_args > 0) {
         num_of_args++;
@@ -140,7 +164,7 @@ command *get_command()
         tmp->argv[num_of_args-1] = NULL;
     }
     /* */
-    return tmp;
+    return root;
 }
 
 int execute_command(command *cmd)
@@ -159,8 +183,17 @@ int execute_command(command *cmd)
     }
     pid_t child;
     if ((child = fork()) > 0) {
-        wait(&status);
-        return status;
+        /* Close files */
+        if (cmd->input_file != -1) close(cmd->input_file);
+        if (cmd->output_file != -1) close(cmd->output_file);
+        /* */
+        if (cmd->next == NULL) {
+            while (wait(&status) != -1);
+            return status;
+        }
+        else {
+            return execute_command(cmd->next);
+        }
     }
     else if (child == 0) { /* Child branch */
         if (cmd->input_file != -1) { /* Input redirection */
@@ -175,7 +208,7 @@ int execute_command(command *cmd)
     } 
     else { /* Error branch */
         perror("Error");
-        exit(1);
+        return -1;
     }
 }
 
