@@ -13,6 +13,7 @@ typedef enum token {
     WORD,
     IN, /* Input stream redirection */
     OUT, /* Output stream redirection */
+    AOUT, /* Append */
     CON, /* Conveyor */
     END
 } token;
@@ -60,28 +61,33 @@ token get_word(char **ptr)
                         (*ptr)[count] = '\0';
                         return WORD;
                     }
-                    else return IN;
+                    return IN;
                 case '>':
                     if (*ptr != NULL) {
                         last_sym = c;
                         (*ptr)[count] = '\0';
                         return WORD;
                     }
-                    else return OUT;
+                    c = getchar();
+                    if (c == '>') return AOUT;
+                    else {
+                        last_sym = c;
+                        return OUT;
+                    }
                 case '|':
                     if (*ptr != NULL) {
                         last_sym = c;
                         (*ptr)[count] = '\0';
                         return WORD;
                     }
-                    else return CON;
+                    return CON;
                 case EOF: case '\n':
                     if (*ptr != NULL) {
                         last_sym = c;
                         (*ptr)[count] = '\0';
                         return WORD;
                     }
-                    else return END;
+                    return END;
             }
             if (isspace(c)) {
                 if (*ptr != NULL) (*ptr)[count] = '\0';
@@ -189,6 +195,30 @@ command *get_command()
                 }
 
                 fd[1] = open(str, O_WRONLY | O_TRUNC | O_CREAT, 0666);
+                free(str);
+                if (fd[1] != -1) {
+                    if (tmp->output_file != -1) close(tmp->output_file);
+                    tmp->output_file = fd[1];
+                }
+                else { /* Error handle */
+                    perror("Error");
+                    free_cmd(root);
+                    skip_string();
+                    return NULL;
+                }
+                break;
+            case AOUT:
+                while ((tk = get_word(&str)) == END) {
+                    printf("> ");
+                }
+                if (tk != WORD) {
+                    fprintf(stderr, "Error: unacceptable syntax\n");
+                    free_cmd(root);
+                    skip_string();
+                    return NULL;
+                }
+
+                fd[1] = open(str, O_WRONLY | O_APPEND | O_CREAT, 0666);
                 free(str);
                 if (fd[1] != -1) {
                     if (tmp->output_file != -1) close(tmp->output_file);
