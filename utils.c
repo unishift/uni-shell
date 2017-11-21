@@ -24,6 +24,8 @@ void free_cmd(command *cmd)
     for (int i = 0; cmd->argv[i] != NULL; i++) {
         free(cmd->argv[i]);
     }
+    if (cmd->input_file != -1) close(cmd->input_file);
+    if (cmd->output_file != -1) close(cmd->output_file);
     free(cmd->argv);
     free(cmd);
 }
@@ -87,6 +89,7 @@ command *get_command()
     tmp->output_file = -1;
     tmp->next = NULL;
     /* */
+    int require_command = 0;
     int dont_stop = 0;
     int num_of_args = 1; /* With last NULL */
     char *str = NULL;
@@ -94,11 +97,20 @@ command *get_command()
     do {
         tk = get_word(&str);
         if (str != NULL) {
+            require_command = 0;
             dont_stop = 0;
             num_of_args++;
             tmp->argv = (char**)realloc(tmp->argv, num_of_args * sizeof(char*));
             tmp->argv[num_of_args-2] = str;
             tmp->argv[num_of_args-1] = NULL;
+        }
+        if (tk != END && tk != WORD && require_command) {
+            free_cmd(root);
+            fprintf(stderr, "Error: expected command\n");
+            /* Skip string */
+            char c;
+            while ((c = getchar()) != '\n' && c != EOF);
+            return NULL;
         }
         int fd[2];
         switch (tk) {
@@ -145,6 +157,7 @@ command *get_command()
                 }
                 break;
             case CON:
+                require_command = 1;
                 dont_stop = 1;
                 pipe(fd);
                 tmp->output_file = fd[1];
@@ -152,7 +165,8 @@ command *get_command()
                 tmp = tmp->next = (command*)malloc(sizeof(command));
                 tmp->input_file = fd[0];
                 tmp->output_file = -1;
-                tmp->argv = NULL;
+                tmp->argv = (char**)malloc(sizeof(char*));
+                tmp->argv[0] = NULL;
                 tmp->next = NULL;
                 num_of_args = 1;
                 break;
