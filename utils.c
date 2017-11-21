@@ -32,12 +32,22 @@ void free_cmd(command *cmd)
 
 token get_word(char **ptr)
 {
+    static int last_sym = 256;
     *ptr = NULL;
     int str_size = 1;
     int quote = 0;
     int count = 0;
     int c;
-    while (isspace(c = getchar()) && c != '\n'); /* Skip spaces */
+    if (last_sym != 256) {
+        c = last_sym;
+        last_sym = 256;
+    }
+    else {
+        c = getchar();
+    }
+    while (isspace(c) && c != '\n'){
+        c = getchar(); /* Skip spaces */
+    }
     do {
         if (!quote) {
             switch (c) {
@@ -45,17 +55,33 @@ token get_word(char **ptr)
                     quote = 1;
                     continue;
                 case '<':
-                    if (*ptr != NULL) (*ptr)[count] = '\0';
-                    return IN;
+                    if (*ptr != NULL) {
+                        last_sym = c;
+                        (*ptr)[count] = '\0';
+                        return WORD;
+                    }
+                    else return IN;
                 case '>':
-                    if (*ptr != NULL) (*ptr)[count] = '\0';
-                    return OUT;
+                    if (*ptr != NULL) {
+                        last_sym = c;
+                        (*ptr)[count] = '\0';
+                        return WORD;
+                    }
+                    else return OUT;
                 case '|':
-                    if (*ptr != NULL) (*ptr)[count] = '\0';
-                    return CON;
+                    if (*ptr != NULL) {
+                        last_sym = c;
+                        (*ptr)[count] = '\0';
+                        return WORD;
+                    }
+                    else return CON;
                 case EOF: case '\n':
-                    if (*ptr != NULL) (*ptr)[count] = '\0';
-                    return END;
+                    if (*ptr != NULL) {
+                        last_sym = c;
+                        (*ptr)[count] = '\0';
+                        return WORD;
+                    }
+                    else return END;
             }
             if (isspace(c)) {
                 if (*ptr != NULL) (*ptr)[count] = '\0';
@@ -78,103 +104,115 @@ token get_word(char **ptr)
     return END;
 }
 
-command *get_command()
+command *init_command()
 {
-    /* Init command */
-    command *root = (command*)malloc(sizeof(command));
-    command *tmp = root;
+    command *tmp = (command*)malloc(sizeof(command));
     tmp->argv = (char**)malloc(sizeof(char*));
     tmp->argv[0] = NULL;
     tmp->input_file = -1;
     tmp->output_file = -1;
     tmp->next = NULL;
-    /* */
+    return tmp;
+}
+
+void skip_string()
+{
+    char c;
+    while ((c = getchar()) != '\n' && c != EOF);
+}
+
+command *get_command()
+{
+    /* Init command */
+    command *root = init_command();
+    command *tmp = root;
+
     int require_command = 0;
-    int dont_stop = 0;
     int num_of_args = 1; /* With last NULL */
     char *str = NULL;
     token tk;
-    do {
-        tk = get_word(&str);
-        if (str != NULL) {
-            require_command = 0;
-            dont_stop = 0;
-            num_of_args++;
-            tmp->argv = (char**)realloc(tmp->argv, num_of_args * sizeof(char*));
-            tmp->argv[num_of_args-2] = str;
-            tmp->argv[num_of_args-1] = NULL;
-        }
-        if (tk != END && tk != WORD && require_command) {
-            free_cmd(root);
-            fprintf(stderr, "Error: expected command\n");
-            /* Skip string */
-            char c;
-            while ((c = getchar()) != '\n' && c != EOF);
-            return NULL;
-        }
+    while ((tk = get_word(&str)) != END) {
         int fd[2];
-        switch (tk) {
-            case IN:
+        if (require_command) {
+            require_command = 0;
+            while (tk == END) {
+                printf("> ");
                 tk = get_word(&str);
-                if (str != NULL) {
-                    int fd = open(str, O_RDONLY);
-                    free(str);
-                    if (fd != -1) {
-                        if (tmp->input_file != -1) close(tmp->input_file);
-                        tmp->input_file = fd;
-                    }
-                    else { /* Error handle */
-                        perror("Error");
-                        free_cmd(root);
-                        return NULL;
-                    }
+            }
+            if (tk != WORD) {
+                fprintf(stderr, "Error: unacceptable syntax\n");
+                free_cmd(root);
+                skip_string();
+                return NULL;
+            }
+        }
+        switch (tk) {
+            case WORD:
+                num_of_args++;
+                tmp->argv = (char**)realloc(tmp->argv, num_of_args * sizeof(char*));
+                tmp->argv[num_of_args-2] = str;
+                tmp->argv[num_of_args-1] = NULL;
+                break;
+            case IN:
+                while ((tk = get_word(&str)) == END) {
+                    printf("> ");
                 }
-                else { /* Syntax error */
-                    fprintf(stderr, "Error: unexpected EOF\n");
+                if (tk != WORD) {
+                    fprintf(stderr, "Error: unacceptable syntax\n");
                     free_cmd(root);
+                    skip_string();
+                    return NULL;
+                }
+
+                fd[0] = open(str, O_RDONLY);
+                free(str);
+                if (fd[0] != -1) {
+                    if (tmp->input_file != -1) close(tmp->input_file);
+                    tmp->input_file = fd[0];
+                }
+                else { /* Error handle */
+                    perror("Error");
+                    free_cmd(root);
+                    skip_string();
                     return NULL;
                 }
                 break;
             case OUT:
-                tk = get_word(&str);
-                if (str != NULL) {
-                    int fd = open(str, O_WRONLY | O_TRUNC | O_CREAT, 0666);
-                    free(str);
-                    if (fd != -1) {
-                        if (tmp->output_file != -1) close(tmp->output_file);
-                        tmp->output_file = fd;
-                    }
-                    else { /* Error handle */
-                        perror("Error");
-                        free_cmd(root);
-                        return NULL;
-                    }
+                while ((tk = get_word(&str)) == END) {
+                    printf("> ");
                 }
-                else { /* Syntax error */
-                    fprintf(stderr, "Error: unexpected EOF\n");
+                if (tk != WORD) {
+                    fprintf(stderr, "Error: unacceptable syntax\n");
                     free_cmd(root);
+                    skip_string();
+                    return NULL;
+                }
+
+                fd[1] = open(str, O_WRONLY | O_TRUNC | O_CREAT, 0666);
+                free(str);
+                if (fd[1] != -1) {
+                    if (tmp->output_file != -1) close(tmp->output_file);
+                    tmp->output_file = fd[1];
+                }
+                else { /* Error handle */
+                    perror("Error");
+                    free_cmd(root);
+                    skip_string();
                     return NULL;
                 }
                 break;
             case CON:
                 require_command = 1;
-                dont_stop = 1;
                 pipe(fd);
                 tmp->output_file = fd[1];
                 /* Init next command */
-                tmp = tmp->next = (command*)malloc(sizeof(command));
+                tmp = tmp->next = init_command();
                 tmp->input_file = fd[0];
-                tmp->output_file = -1;
-                tmp->argv = (char**)malloc(sizeof(char*));
-                tmp->argv[0] = NULL;
-                tmp->next = NULL;
                 num_of_args = 1;
                 break;
-            default:
-                if (dont_stop) putchar('>');
+            default: ;
         }
-    } while (tk != END || dont_stop);
-    /* */
+    }
     if (root->argv[0] == NULL) {
         free_cmd(root);
         root = NULL;
@@ -200,7 +238,9 @@ int execute_command(command *cmd)
     if ((child = fork()) > 0) {
         /* Close files */
         if (cmd->input_file != -1) close(cmd->input_file);
+        cmd->input_file = -1;
         if (cmd->output_file != -1) close(cmd->output_file);
+        cmd->output_file = -1;
         /* */
         if (cmd->next == NULL) {
             while (wait(&status) != -1);
