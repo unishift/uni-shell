@@ -31,9 +31,10 @@ void free_cmd(command *cmd)
     free(cmd);
 }
 
+int last_sym = 256;
+
 token get_word(char **ptr)
 {
-    static int last_sym = 256;
     *ptr = NULL;
     int str_size = 1;
     int quote = 0;
@@ -124,7 +125,13 @@ command *init_command()
 void skip_string()
 {
     char c;
-    while ((c = getchar()) != '\n' && c != EOF);
+    if (last_sym != 256) {
+        c = last_sym;
+        last_sym = 256;
+    }
+    else c = getchar();
+    while (c != '\n' && c != EOF)
+        c = getchar();
 }
 
 command *get_command()
