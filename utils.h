@@ -1,5 +1,18 @@
 #pragma once
 
+typedef enum token {
+    WORD,
+    IN, /* Input stream redirection */
+    OUT, /* Output stream redirection */
+    AOUT, /* Append */
+    CON, /* Pipeline */
+    BCKG, /* Background */
+    SEP, /* Separator */
+    OR,
+    AND,
+    END
+} token;
+
 typedef struct command {
     char **argv;
     int input_file;
@@ -10,6 +23,7 @@ typedef struct command {
 
 typedef struct command_list {
     command *cmd;
+    token link;
     struct command_list *next;
 } command_list;
 

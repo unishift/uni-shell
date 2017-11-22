@@ -10,17 +10,6 @@
 #include "inbuilt.h"
 #include "utils.h"
 
-typedef enum token {
-    WORD,
-    IN, /* Input stream redirection */
-    OUT, /* Output stream redirection */
-    AOUT, /* Append */
-    CON, /* Pipeline */
-    BCKG, /* Background */
-    SEP, /* Separator */
-    END
-} token;
-
 
 void free_cmd(command *cmd)
 {
@@ -91,14 +80,24 @@ token get_word(char **ptr)
                         (*ptr)[count] = '\0';
                         return WORD;
                     }
-                    return CON;
+                    c = getchar();
+                    if (c == '|') return OR;
+                    else {
+                        last_sym = c;
+                        return CON;
+                    }
                 case '&':
                     if (*ptr != NULL) {
                         last_sym = c;
                         (*ptr)[count] = '\0';
                         return WORD;
                     }
-                    return BCKG;
+                    c = getchar();
+                    if (c == '&') return AND;
+                    else {
+                        last_sym = c;
+                        return BCKG;
+                    }
                 case ';':
                     if (*ptr != NULL) {
                         last_sym = c;
@@ -166,6 +165,7 @@ command_list *get_command()
     /* Init command */
     command_list *root = (command_list*)malloc(sizeof(command_list));
     root->cmd = init_command();
+    root->link = WORD;
     root->next = NULL;
     command *tmp = root->cmd;
 
@@ -303,9 +303,27 @@ command_list *get_command()
                 }
                 return root;
             case SEP:
-                if (tmp->input_file == -1)
-                    tmp->input_file = open("/dev/null", O_RDONLY);
                 /* Get next list of commands */
+                root->next = get_command();
+                if (error) {
+                    free_cmd(root->cmd);
+                    free(root);
+                    root = NULL;
+                }
+                return root;
+            case OR:
+                /* Get next list of commands */
+                root->link = OR;
+                root->next = get_command();
+                if (error) {
+                    free_cmd(root->cmd);
+                    free(root);
+                    root = NULL;
+                }
+                return root;
+            case AND:
+                /* Get next list of commands */
+                root->link = AND;
                 root->next = get_command();
                 if (error) {
                     free_cmd(root->cmd);
