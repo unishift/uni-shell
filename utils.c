@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 #include <string.h>
 #include <fcntl.h>
+#include <signal.h>
 
 #include "inbuilt.h"
 #include "utils.h"
@@ -280,7 +281,8 @@ int execute_command(command *cmd)
         cmd->output_file = -1;
         /* */
         if (cmd->next == NULL) {
-            while (wait(&status) != -1);
+            while (wait(&status) != child);
+            kill(getpid(), SIGINT); /* SIGINT to all children */
             return status;
         }
         else {
@@ -288,6 +290,7 @@ int execute_command(command *cmd)
         }
     }
     else if (child == 0) { /* Child branch */
+        signal(SIGINT, SIG_DFL);
         if (cmd->input_file != -1) { /* Input redirection */
             dup2(cmd->input_file, 0);
         }
