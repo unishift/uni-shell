@@ -15,7 +15,8 @@ typedef enum token {
     IN, /* Input stream redirection */
     OUT, /* Output stream redirection */
     AOUT, /* Append */
-    CON, /* Conveyor */
+    CON, /* Pipeline */
+    BCKG, /* Background */
     END
 } token;
 
@@ -30,6 +31,13 @@ void free_cmd(command *cmd)
     if (cmd->output_file != -1) close(cmd->output_file);
     free(cmd->argv);
     free(cmd);
+}
+
+void free_list(command_list *list)
+{
+    if (list->next != NULL) free_list(list->next);
+    free_cmd(list->cmd);
+    free(list);
 }
 
 int last_sym = 256;
@@ -83,6 +91,13 @@ token get_word(char **ptr)
                         return WORD;
                     }
                     return CON;
+                case '&':
+                    if (*ptr != NULL) {
+                        last_sym = c;
+                        (*ptr)[count] = '\0';
+                        return WORD;
+                    }
+                    return BCKG;
                 case EOF: case '\n':
                     if (*ptr != NULL) {
                         last_sym = c;
@@ -119,6 +134,7 @@ command *init_command()
     tmp->argv[0] = NULL;
     tmp->input_file = -1;
     tmp->output_file = -1;
+    tmp->backgr = 0;
     tmp->next = NULL;
     return tmp;
 }
@@ -135,13 +151,17 @@ void skip_string()
         c = getchar();
 }
 
-command *get_command()
+command_list *get_command()
 {
+    static int error = 0;
+    error = 0;
     /* Init command */
-    command *root = init_command();
-    command *tmp = root;
+    command_list *root = (command_list*)malloc(sizeof(command_list));
+    root->cmd = init_command();
+    root->next = NULL;
+    command *tmp = root->cmd;
 
-    int require_command = 0;
+    int require_command = 1;
     int num_of_args = 1; /* With last NULL */
     char *str = NULL;
     token tk;
@@ -155,8 +175,10 @@ command *get_command()
             }
             if (tk != WORD) {
                 fprintf(stderr, "Error: unacceptable syntax\n");
-                free_cmd(root);
+                free_cmd(root->cmd);
+                free(root);
                 skip_string();
+                error = 1;
                 return NULL;
             }
         }
@@ -173,8 +195,10 @@ command *get_command()
                 }
                 if (tk != WORD) {
                     fprintf(stderr, "Error: unacceptable syntax\n");
-                    free_cmd(root);
+                    free_cmd(root->cmd);
+                    free(root);
                     skip_string();
+                    error = 1;
                     return NULL;
                 }
 
@@ -186,8 +210,10 @@ command *get_command()
                 }
                 else { /* Error handle */
                     perror("Error");
-                    free_cmd(root);
+                    free_cmd(root->cmd);
+                    free(root);
                     skip_string();
+                    error = 1;
                     return NULL;
                 }
                 break;
@@ -197,8 +223,10 @@ command *get_command()
                 }
                 if (tk != WORD) {
                     fprintf(stderr, "Error: unacceptable syntax\n");
-                    free_cmd(root);
+                    free_cmd(root->cmd);
+                    free(root);
                     skip_string();
+                    error = 1;
                     return NULL;
                 }
 
@@ -210,8 +238,10 @@ command *get_command()
                 }
                 else { /* Error handle */
                     perror("Error");
-                    free_cmd(root);
+                    free_cmd(root->cmd);
+                    free(root);
                     skip_string();
+                    error = 1;
                     return NULL;
                 }
                 break;
@@ -221,8 +251,10 @@ command *get_command()
                 }
                 if (tk != WORD) {
                     fprintf(stderr, "Error: unacceptable syntax\n");
-                    free_cmd(root);
+                    free_cmd(root->cmd);
+                    free(root);
                     skip_string();
+                    error = 1;
                     return NULL;
                 }
 
@@ -234,8 +266,10 @@ command *get_command()
                 }
                 else { /* Error handle */
                     perror("Error");
-                    free_cmd(root);
+                    free_cmd(root->cmd);
+                    free(root);
                     skip_string();
+                    error = 1;
                     return NULL;
                 }
                 break;
@@ -248,11 +282,24 @@ command *get_command()
                 tmp->input_file = fd[0];
                 num_of_args = 1;
                 break;
+            case BCKG:
+                tmp->backgr = 1;
+                if (tmp->input_file == -1)
+                    tmp->input_file = open("/dev/null", O_RDONLY);
+                /* Get next list of commands */
+                root->next = get_command();
+                if (error) {
+                    free_cmd(root->cmd);
+                    free(root);
+                    root = NULL;
+                }
+                return root;
             default: ;
         }
     }
-    if (root->argv[0] == NULL) {
-        free_cmd(root);
+    if (root->cmd->argv[0] == NULL) {
+        free_cmd(root->cmd);
+        free(root);
         root = NULL;
     }
     return root;
@@ -279,7 +326,8 @@ int execute_command(command *cmd)
         cmd->input_file = -1;
         if (cmd->output_file != -1) close(cmd->output_file);
         cmd->output_file = -1;
-        /* */
+
+        if (cmd->backgr) return 0;
         if (cmd->next == NULL) {
             while (wait(&status) != child);
             kill(getpid(), SIGINT); /* SIGINT to all children */
