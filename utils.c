@@ -17,6 +17,7 @@ typedef enum token {
     AOUT, /* Append */
     CON, /* Pipeline */
     BCKG, /* Background */
+    SEP, /* Separator */
     END
 } token;
 
@@ -98,6 +99,13 @@ token get_word(char **ptr)
                         return WORD;
                     }
                     return BCKG;
+                case ';':
+                    if (*ptr != NULL) {
+                        last_sym = c;
+                        (*ptr)[count] = '\0';
+                        return WORD;
+                    }
+                    return SEP;
                 case EOF: case '\n':
                     if (*ptr != NULL) {
                         last_sym = c;
@@ -284,6 +292,17 @@ command_list *get_command()
                 break;
             case BCKG:
                 tmp->backgr = 1;
+                if (tmp->input_file == -1)
+                    tmp->input_file = open("/dev/null", O_RDONLY);
+                /* Get next list of commands */
+                root->next = get_command();
+                if (error) {
+                    free_cmd(root->cmd);
+                    free(root);
+                    root = NULL;
+                }
+                return root;
+            case SEP:
                 if (tmp->input_file == -1)
                     tmp->input_file = open("/dev/null", O_RDONLY);
                 /* Get next list of commands */
