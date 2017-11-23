@@ -39,23 +39,12 @@ int main(int argc, char **argv)
             free(cur_dir);
         }
         /* */
-        command_list *list = get_command();
-        if (list == NULL) continue;
+        command *cmd = get_command();
+        if (cmd == NULL) continue;
         /* Command execution */
-        for (command_list *p = list; p != NULL; p = p->next) {
-            int status = execute_command(p->cmd);
-            /* Handle logic links */
-            if (p->link == OR && status == 0) {
-                while (p->link == OR)
-                    p = p->next;
-            }
-            if (p->link == AND && status != 0) {
-                while (p->link == AND)
-                    p = p->next;
-            }
-        }
+        execute_command(cmd);
         /* Free memory */
-        free_list(list);
+        free_cmd(cmd);
     }
     return 0;
 }

@@ -23,13 +23,6 @@ void free_cmd(command *cmd)
     free(cmd);
 }
 
-void free_list(command_list *list)
-{
-    if (list->next != NULL) free_list(list->next);
-    free_cmd(list->cmd);
-    free(list);
-}
-
 int last_sym = 256;
 
 token get_word(char **ptr)
@@ -142,6 +135,7 @@ command *init_command()
     tmp->input_file = -1;
     tmp->output_file = -1;
     tmp->backgr = 0;
+    tmp->link = END;
     tmp->next = NULL;
     return tmp;
 }
@@ -158,22 +152,23 @@ void skip_string()
         c = getchar();
 }
 
-command_list *get_command()
+command *get_command()
 {
-    static int error = 0;
-    error = 0;
     /* Init command */
-    command_list *root = (command_list*)malloc(sizeof(command_list));
-    root->cmd = init_command();
-    root->link = WORD;
-    root->next = NULL;
-    command *tmp = root->cmd;
+    command *root = init_command();
+    command *cmd = root;
 
     int require_command = 1;
     int num_of_args = 1; /* With last NULL */
+    int may_cont = 0;
     char *str = NULL;
     token tk;
     while ((tk = get_word(&str)) != END) {
+        if (may_cont) {
+            may_cont = 0;
+            cmd = cmd->next = init_command();
+            num_of_args = 1;
+        }
         int fd[2];
         if (require_command) {
             require_command = 0;
@@ -183,19 +178,17 @@ command_list *get_command()
             }
             if (tk != WORD) {
                 fprintf(stderr, "Error: unacceptable syntax\n");
-                free_cmd(root->cmd);
-                free(root);
+                free_cmd(root);
                 skip_string();
-                error = 1;
                 return NULL;
             }
         }
         switch (tk) {
             case WORD:
                 num_of_args++;
-                tmp->argv = (char**)realloc(tmp->argv, num_of_args * sizeof(char*));
-                tmp->argv[num_of_args-2] = str;
-                tmp->argv[num_of_args-1] = NULL;
+                cmd->argv = (char**)realloc(cmd->argv, num_of_args * sizeof(char*));
+                cmd->argv[num_of_args-2] = str;
+                cmd->argv[num_of_args-1] = NULL;
                 break;
             case IN:
                 while ((tk = get_word(&str)) == END) {
@@ -203,25 +196,21 @@ command_list *get_command()
                 }
                 if (tk != WORD) {
                     fprintf(stderr, "Error: unacceptable syntax\n");
-                    free_cmd(root->cmd);
-                    free(root);
+                    free_cmd(root);
                     skip_string();
-                    error = 1;
                     return NULL;
                 }
 
                 fd[0] = open(str, O_RDONLY);
                 free(str);
                 if (fd[0] != -1) {
-                    if (tmp->input_file != -1) close(tmp->input_file);
-                    tmp->input_file = fd[0];
+                    if (cmd->input_file != -1) close(cmd->input_file);
+                    cmd->input_file = fd[0];
                 }
                 else { /* Error handle */
                     perror("Error");
-                    free_cmd(root->cmd);
-                    free(root);
+                    free_cmd(root);
                     skip_string();
-                    error = 1;
                     return NULL;
                 }
                 break;
@@ -231,25 +220,21 @@ command_list *get_command()
                 }
                 if (tk != WORD) {
                     fprintf(stderr, "Error: unacceptable syntax\n");
-                    free_cmd(root->cmd);
-                    free(root);
+                    free_cmd(root);
                     skip_string();
-                    error = 1;
                     return NULL;
                 }
 
                 fd[1] = open(str, O_WRONLY | O_TRUNC | O_CREAT, 0666);
                 free(str);
                 if (fd[1] != -1) {
-                    if (tmp->output_file != -1) close(tmp->output_file);
-                    tmp->output_file = fd[1];
+                    if (cmd->output_file != -1) close(cmd->output_file);
+                    cmd->output_file = fd[1];
                 }
                 else { /* Error handle */
                     perror("Error");
-                    free_cmd(root->cmd);
-                    free(root);
+                    free_cmd(root);
                     skip_string();
-                    error = 1;
                     return NULL;
                 }
                 break;
@@ -259,84 +244,62 @@ command_list *get_command()
                 }
                 if (tk != WORD) {
                     fprintf(stderr, "Error: unacceptable syntax\n");
-                    free_cmd(root->cmd);
-                    free(root);
+                    free_cmd(root);
                     skip_string();
-                    error = 1;
                     return NULL;
                 }
 
                 fd[1] = open(str, O_WRONLY | O_APPEND | O_CREAT, 0666);
                 free(str);
                 if (fd[1] != -1) {
-                    if (tmp->output_file != -1) close(tmp->output_file);
-                    tmp->output_file = fd[1];
+                    if (cmd->output_file != -1) close(cmd->output_file);
+                    cmd->output_file = fd[1];
                 }
                 else { /* Error handle */
                     perror("Error");
-                    free_cmd(root->cmd);
-                    free(root);
+                    free_cmd(root);
                     skip_string();
-                    error = 1;
                     return NULL;
                 }
                 break;
             case CON:
                 require_command = 1;
+                cmd->link = CON;
                 pipe(fd);
-                tmp->output_file = fd[1];
+                cmd->output_file = fd[1];
                 /* Init next command */
-                tmp = tmp->next = init_command();
-                tmp->input_file = fd[0];
+                cmd = cmd->next = init_command();
+                cmd->input_file = fd[0];
                 num_of_args = 1;
                 break;
             case BCKG:
-                tmp->backgr = 1;
-                if (tmp->input_file == -1)
-                    tmp->input_file = open("/dev/null", O_RDONLY);
-                /* Get next list of commands */
-                root->next = get_command();
-                if (error) {
-                    free_cmd(root->cmd);
-                    free(root);
-                    root = NULL;
-                }
-                return root;
+                cmd->backgr = 1;
+                if (cmd->input_file == -1)
+                    cmd->input_file = open("/dev/null", O_RDONLY);
+                cmd->link = BCKG;
+                may_cont = 1;
+                break;
             case SEP:
-                /* Get next list of commands */
-                root->next = get_command();
-                if (error) {
-                    free_cmd(root->cmd);
-                    free(root);
-                    root = NULL;
-                }
-                return root;
+                cmd->link = SEP;
+                may_cont = 1;
+                break;
             case OR:
-                /* Get next list of commands */
-                root->link = OR;
-                root->next = get_command();
-                if (error) {
-                    free_cmd(root->cmd);
-                    free(root);
-                    root = NULL;
-                }
-                return root;
+                require_command = 1;
+                cmd->link = OR;
+                cmd = cmd->next = init_command();
+                num_of_args = 1;
+                break;
             case AND:
-                /* Get next list of commands */
-                root->link = AND;
-                root->next = get_command();
-                if (error) {
-                    free_cmd(root->cmd);
-                    free(root);
-                    root = NULL;
-                }
-                return root;
+                require_command = 1;
+                cmd->link = AND;
+                cmd = cmd->next = init_command();
+                num_of_args = 1;
+                break;
             default: ;
         }
     }
-    if (root->cmd->argv[0] == NULL) {
-        free_cmd(root->cmd);
-        free(root);
+    if (root->argv[0] == NULL) {
+        free_cmd(root);
         root = NULL;
     }
     return root;
@@ -345,50 +308,78 @@ command_list *get_command()
 int execute_command(command *cmd)
 {
     int status;
+    pid_t child = 0;
     if (strcmp(cmd->argv[0], "cd") == 0) {
          status = cd(cmd->argv + 1);
          if (status == -1){
              perror("Error");
          }
-         return status;
     }
-    if (strcmp(cmd->argv[0], "exit") == 0) {
+    else if (strcmp(cmd->argv[0], "exit") == 0) {
         free_cmd(cmd);
         exit(0);
     }
-    pid_t child;
-    if ((child = fork()) > 0) {
-        /* Close files */
-        if (cmd->input_file != -1) close(cmd->input_file);
-        cmd->input_file = -1;
-        if (cmd->output_file != -1) close(cmd->output_file);
-        cmd->output_file = -1;
+    else {
+        if ((child = fork()) > 0) { /* Parent branch */
+            /* Close files */
+            if (cmd->input_file != -1) close(cmd->input_file);
+            cmd->input_file = -1;
+            if (cmd->output_file != -1) close(cmd->output_file);
+            cmd->output_file = -1;
+        }
+        else if (child == 0) { /* Child branch */
+            if (cmd->link != BCKG) signal(SIGINT, SIG_DFL);
+            if (cmd->input_file != -1) { /* Input redirection */
+                dup2(cmd->input_file, 0);
+            }
+            if (cmd->output_file != -1) { /* Output redirection */
+                dup2(cmd->output_file, 1);
+            }
 
-        if (cmd->backgr) return 0;
-        if (cmd->next == NULL) {
+            execvp(cmd->argv[0], cmd->argv);
+
+            perror("Error");
+            exit(-1);
+        }
+        else { /* Error branch */
+            perror("Error");
+            return -1;
+        }
+    }
+
+    switch (cmd->link) {
+        case CON:
+            return execute_command(cmd->next);
+        case BCKG:
+            return cmd->next == NULL ? 0 : execute_command(cmd->next);
+        case SEP:
+            if (child != 0) while (wait(&status) != child);
+            kill(getpid(), SIGINT); /* SIGINT to all children */
+            return cmd->next == NULL ? status : execute_command(cmd->next);
+        case OR:
+            if (child != 0) while (wait(&status) != child);
+            kill(getpid(), SIGINT); /* SIGINT to all children */
+            if (status == 0) {
+                while (cmd->link == OR)
+                    cmd = cmd->next;
+            }
+            cmd = cmd->next;
+            return cmd == 0 ? status : execute_command(cmd);
+        case AND:
+            if (child != 0) while (wait(&status) != child);
+            kill(getpid(), SIGINT); /* SIGINT to all children */
+            if (status != 0) {
+                while (cmd->link == AND)
+                    cmd = cmd->next;
+            }
+            cmd = cmd->next;
+            return cmd == 0 ? status : execute_command(cmd);
+        case END:
             while (wait(&status) != child);
             kill(getpid(), SIGINT); /* SIGINT to all children */
             return status;
-        }
-        else {
-            return execute_command(cmd->next);
-        }
-    }
-    else if (child == 0) { /* Child branch */
-        signal(SIGINT, SIG_DFL);
-        if (cmd->input_file != -1) { /* Input redirection */
-            dup2(cmd->input_file, 0);
-        }
-        if (cmd->output_file != -1) { /* Output redirection */
-            dup2(cmd->output_file, 1);
-        }
-        execvp(cmd->argv[0], cmd->argv);
-        perror("Error");
-        exit(1);
-    } 
-    else { /* Error branch */
-        perror("Error");
-        return -1;
+        default: ; /* Cannot happen */
+            return status;
     }
 }
 
