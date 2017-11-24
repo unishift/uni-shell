@@ -1,5 +1,7 @@
 #pragma once
 
+extern FILE *term;
+
 typedef enum token {
     WORD,
     IN, /* Input stream redirection */

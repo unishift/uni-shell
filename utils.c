@@ -11,6 +11,8 @@
 #include "utils.h"
 
 
+FILE *term;
+
 void free_cmd(command *cmd)
 {
     if (cmd->next != NULL) free_cmd(cmd->next);
@@ -189,7 +191,8 @@ command *get_command()
         if (require_command) {
             require_command = 0;
             while (tk == END) {
-                printf("> ");
+                fprintf(term, "> ");
+                fflush(term);
                 tk = get_word(&str);
             }
             if (tk != WORD && tk != SUBSH_ST) {
@@ -208,7 +211,8 @@ command *get_command()
                 break;
             case IN:
                 while ((tk = get_word(&str)) == END) {
-                    printf("> ");
+                    fprintf(term, "> ");
+                    fflush(term);
                 }
                 if (tk != WORD) {
                     fprintf(stderr, "Error: unacceptable syntax\n");
@@ -232,7 +236,8 @@ command *get_command()
                 break;
             case OUT:
                 while ((tk = get_word(&str)) == END) {
-                    printf("> ");
+                    fprintf(term, "> ");
+                    fflush(term);
                 }
                 if (tk != WORD) {
                     fprintf(stderr, "Error: unacceptable syntax\n");
@@ -256,7 +261,8 @@ command *get_command()
                 break;
             case AOUT:
                 while ((tk = get_word(&str)) == END) {
-                    printf("> ");
+                    fprintf(term, "> ");
+                    fflush(term);
                 }
                 if (tk != WORD) {
                     fprintf(stderr, "Error: unacceptable syntax\n");
@@ -434,5 +440,16 @@ char *get_cwd_name()
         size += 100;
         cur_dir = (char*)realloc(cur_dir, size * sizeof(char));
     }
-    return cur_dir;
+    if (cur_dir[1] == '\0') return cur_dir; /* Root directory */
+
+    int shift;
+    for (int i = 0; cur_dir[i] != '\0'; i++) {
+        if (cur_dir[i] == '/') {
+            shift = i;
+        }
+    }
+    char *tmp = (char*)calloc(strlen(cur_dir + shift + 1) + 1, sizeof(char));
+    strcpy(tmp, cur_dir + shift + 1);
+    free(cur_dir);
+    return tmp;
 }
