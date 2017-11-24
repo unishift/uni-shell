@@ -10,11 +10,14 @@ typedef enum token {
     SEP, /* Separator */
     OR,
     AND,
+    SUBSH_ST,
+    SUBSH_END,
     END
 } token;
 
 typedef struct command {
     char **argv;
+    struct command *subshell;
     int input_file;
     int output_file;
     int backgr;

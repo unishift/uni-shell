@@ -14,6 +14,7 @@
 void free_cmd(command *cmd)
 {
     if (cmd->next != NULL) free_cmd(cmd->next);
+    if (cmd->subshell != NULL) free_cmd(cmd->subshell);
     for (int i = 0; cmd->argv[i] != NULL; i++) {
         free(cmd->argv[i]);
     }
@@ -98,6 +99,20 @@ token get_word(char **ptr)
                         return WORD;
                     }
                     return SEP;
+                case '(':
+                    if (*ptr != NULL) {
+                        last_sym = c;
+                        (*ptr)[count] = '\0';
+                        return WORD;
+                    }
+                    return SUBSH_ST;
+                case ')':
+                    if (*ptr != NULL) {
+                        last_sym = c;
+                        (*ptr)[count] = '\0';
+                        return WORD;
+                    }
+                    return END;
                 case EOF: case '\n':
                     if (*ptr != NULL) {
                         last_sym = c;
@@ -135,6 +150,7 @@ command *init_command()
     tmp->input_file = -1;
     tmp->output_file = -1;
     tmp->backgr = 0;
+    tmp->subshell = NULL;
     tmp->link = END;
     tmp->next = NULL;
     return tmp;
@@ -176,7 +192,7 @@ command *get_command()
                 printf("> ");
                 tk = get_word(&str);
             }
-            if (tk != WORD) {
+            if (tk != WORD && tk != SUBSH_ST) {
                 fprintf(stderr, "Error: unacceptable syntax\n");
                 free_cmd(root);
                 skip_string();
@@ -295,10 +311,19 @@ command *get_command()
                 cmd = cmd->next = init_command();
                 num_of_args = 1;
                 break;
+            case SUBSH_ST:
+                if (cmd->argv[0] != NULL) {
+                    /* Error */
+                }
+                cmd->subshell = get_command();
+                break;
+            case SUBSH_END:
+                tk = END;
+                break;
             default: ;
         }
     }
-    if (root->argv[0] == NULL) {
+    if (root->argv[0] == NULL && root->subshell == NULL) {
         free_cmd(root);
         root = NULL;
     }
@@ -309,9 +334,27 @@ int execute_command(command *cmd)
 {
     int status;
     pid_t child = 0;
-    if (strcmp(cmd->argv[0], "cd") == 0) {
+    if (cmd->subshell != NULL) {
+        if ((child = fork()) == 0) { /* Subshell branch */
+            if (cmd->input_file != -1) { /* Input redirection */
+                dup2(cmd->input_file, 0);
+                cmd->input_file = -1;
+            }
+            if (cmd->output_file != -1) { /* Output redirection */
+                dup2(cmd->output_file, 1);
+                cmd->output_file = -1;
+            }
+            status = execute_command(cmd->subshell);
+            exit(status);
+        }
+        else if (child == -1) { /* Error branch */
+            perror("Error");
+            return -1;
+        }
+    }
+    else if (strcmp(cmd->argv[0], "cd") == 0) {
          status = cd(cmd->argv + 1);
-         if (status == -1){
+         if (status == -1) {
              perror("Error");
          }
     }
@@ -375,7 +418,7 @@ int execute_command(command *cmd)
             cmd = cmd->next;
             return cmd == 0 ? status : execute_command(cmd);
         case END:
-            while (wait(&status) != child);
+            if (child != 0) while (wait(&status) != child);
             kill(getpid(), SIGINT); /* SIGINT to all children */
             return status;
         default: ; /* Cannot happen */
