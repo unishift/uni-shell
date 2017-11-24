@@ -46,6 +46,7 @@ token get_word(char **ptr)
         c = getchar(); /* Skip spaces */
     }
     do {
+        last_sym = 256;
         if (!quote) {
             switch (c) {
                 case '\"':
@@ -115,6 +116,24 @@ token get_word(char **ptr)
                         return WORD;
                     }
                     return END;
+                case '~':
+                    if (*ptr == NULL) {
+                        c = getchar();
+                        if (isspace(c) || c == '/') {
+                            int len = strlen(getenv("HOME"));
+                            str_size += len;
+                            count += len;
+                            *ptr = (char*)realloc(*ptr, str_size * sizeof(char));
+                            strcpy(*ptr, getenv("HOME"));
+                            last_sym = c;
+                            continue;
+                        }
+                        else {
+                            last_sym = c;
+                            c = '~';
+                        }
+                    }
+                    break;
                 case EOF: case '\n':
                     if (*ptr != NULL) {
                         last_sym = c;
@@ -138,7 +157,7 @@ token get_word(char **ptr)
             *ptr = (char*)realloc(*ptr, str_size * sizeof(char));
         }
         (*ptr)[count-1] = c;
-    } while ((c = getchar()) != EOF);
+    } while ((c = last_sym != 256 ? last_sym : getchar()) != EOF);
     /* EOF encountered */
     (*ptr)[count] = '\0';
     return END;

@@ -14,16 +14,8 @@ int cd(char **argv)
         return -1;
     }
     else {
-        switch (argv[0][0]) {
-            case '~': 
-                path = (char*)calloc(strlen(getenv("HOME")) + strlen(argv[0] + 1) + 1, sizeof(char));
-                strcpy(path, getenv("HOME"));
-                strcpy(path + strlen(getenv("HOME")), argv[0] + 1);
-                break;
-            default:
-                path = (char*)calloc(strlen(argv[0]) + 1, sizeof(char));
-                strcpy(path, argv[0]);
-        }
+        path = (char*)calloc(strlen(argv[0]) + 1, sizeof(char));
+        strcpy(path, argv[0]);
     }
     int status = chdir(path); 
     if (argv[0] != NULL) free(path);
