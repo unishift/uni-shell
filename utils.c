@@ -174,12 +174,12 @@ command *get_command()
     command *root = init_command();
     command *cmd = root;
 
-    int require_command = 1;
+    int require_command = 0;
     int num_of_args = 1; /* With last NULL */
     int may_cont = 0;
     char *str = NULL;
     token tk;
-    while ((tk = get_word(&str)) != END) {
+    while ((tk = get_word(&str)) != END || require_command) {
         if (may_cont) {
             may_cont = 0;
             cmd = cmd->next = init_command();
