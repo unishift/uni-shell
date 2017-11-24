@@ -11,7 +11,7 @@
 #include "utils.h"
 
 
-FILE *term;
+FILE *term = NULL;
 
 void free_cmd(command *cmd)
 {
@@ -210,8 +210,10 @@ command *get_command()
         if (require_command) {
             require_command = 0;
             while (tk == END) {
-                fprintf(term, "> ");
-                fflush(term);
+                if (term != NULL) {
+                    fprintf(term, "> ");
+                    fflush(term);
+                }
                 tk = get_word(&str);
             }
             if (tk != WORD && tk != SUBSH_ST) {
@@ -230,8 +232,10 @@ command *get_command()
                 break;
             case IN:
                 while ((tk = get_word(&str)) == END) {
-                    fprintf(term, "> ");
-                    fflush(term);
+                    if (term != NULL) {
+                        fprintf(term, "> ");
+                        fflush(term);
+                    }
                 }
                 if (tk != WORD) {
                     fprintf(stderr, "Error: unacceptable syntax\n");
@@ -255,8 +259,10 @@ command *get_command()
                 break;
             case OUT:
                 while ((tk = get_word(&str)) == END) {
-                    fprintf(term, "> ");
-                    fflush(term);
+                    if (term != NULL) {
+                        fprintf(term, "> ");
+                        fflush(term);
+                    }
                 }
                 if (tk != WORD) {
                     fprintf(stderr, "Error: unacceptable syntax\n");
@@ -280,8 +286,10 @@ command *get_command()
                 break;
             case AOUT:
                 while ((tk = get_word(&str)) == END) {
-                    fprintf(term, "> ");
-                    fflush(term);
+                    if (term != NULL) {
+                        fprintf(term, "> ");
+                        fflush(term);
+                    }
                 }
                 if (tk != WORD) {
                     fprintf(stderr, "Error: unacceptable syntax\n");

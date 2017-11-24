@@ -10,8 +10,6 @@ int main(int argc, char **argv)
 {
     signal(SIGINT, SIG_IGN);
 
-    term = fopen("/dev/tty", "w");
-
     if (argc > 1) { /* Replace stdin with file from argv[1] */ 
         int fd = open(argv[1], O_RDONLY);
         if (fd == -1) {
@@ -20,12 +18,17 @@ int main(int argc, char **argv)
         }
         dup2(fd, 0);
     }
+    else {
+        term = fopen("/dev/tty", "w");
+    }
 
     while (!feof(stdin)) {
-        char *cur_dir = get_cwd_name();
-        fprintf(term, "[ %s ]$ ", cur_dir);
-        fflush(term);
-        free(cur_dir);
+        if (term != NULL) {
+            char *cur_dir = get_cwd_name();
+            fprintf(term, "[ %s ]$ ", cur_dir);
+            fflush(term);
+            free(cur_dir);
+        }
 
         command *cmd = get_command();
         if (cmd == NULL) continue;
