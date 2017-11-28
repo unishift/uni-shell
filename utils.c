@@ -430,11 +430,11 @@ int execute_command(command *cmd)
             return cmd->next == NULL ? 0 : execute_command(cmd->next);
         case SEP:
             if (child != 0) while (wait(&status) != child);
-            kill(0, SIGINT); /* SIGINT to all children */
+            kill(-getpid(), SIGINT); /* SIGINT to all children */
             return cmd->next == NULL ? status : execute_command(cmd->next);
         case OR:
             if (child != 0) while (wait(&status) != child);
-            kill(0, SIGINT); /* SIGINT to all children */
+            kill(-getpid(), SIGINT); /* SIGINT to all children */
             if (status == 0) {
                 while (cmd->link == OR)
                     cmd = cmd->next;
@@ -443,7 +443,7 @@ int execute_command(command *cmd)
             return cmd == 0 ? status : execute_command(cmd);
         case AND:
             if (child != 0) while (wait(&status) != child);
-            kill(0, SIGINT); /* SIGINT to all children */
+            kill(-getpid(), SIGINT); /* SIGINT to all children */
             if (status != 0) {
                 while (cmd->link == AND)
                     cmd = cmd->next;
@@ -452,7 +452,7 @@ int execute_command(command *cmd)
             return cmd == 0 ? status : execute_command(cmd);
         case END:
             if (child != 0) while (wait(&status) != child);
-            kill(0, SIGINT); /* SIGINT to all children */
+            kill(-getpid(), SIGINT); /* SIGINT to all children */
             return status;
         default: ; /* Cannot happen */
             return status;
