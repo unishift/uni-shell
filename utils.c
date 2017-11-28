@@ -480,3 +480,9 @@ char *get_cwd_name()
     free(cur_dir);
     return tmp;
 }
+
+/* Finish all remaining zombies (from pipelines and background) */
+void track_zombies()
+{
+    while (waitpid(-1, NULL, WNOHANG) > 0);
+}

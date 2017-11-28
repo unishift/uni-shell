@@ -32,3 +32,4 @@ void free_list(command *list);
 command *get_command();
 int execute_command(command *cmd);
 char *get_cwd_name();
+void track_zombies();

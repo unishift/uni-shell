@@ -30,6 +30,8 @@ int main(int argc, char **argv)
             free(cur_dir);
         }
 
+        track_zombies();
+
         command *cmd = get_command();
         if (cmd == NULL) continue;
         /* Command execution */
