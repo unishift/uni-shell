@@ -384,6 +384,13 @@ int execute_command(command *cmd)
             perror("Error");
             return -1;
         }
+        else { /* Main branch */
+            /* Close files */
+            if (cmd->input_file != -1) close(cmd->input_file);
+            cmd->input_file = -1;
+            if (cmd->output_file != -1) close(cmd->output_file);
+            cmd->output_file = -1;
+        }
     }
     else if (strcmp(cmd->argv[0], "cd") == 0) {
          status = cd(cmd->argv + 1);
