@@ -378,7 +378,7 @@ int execute_command(command *cmd)
                 cmd->output_file = -1;
             }
             status = execute_command(cmd->subshell);
-            exit(status);
+            exit(status != 0);
         }
         else if (child == -1) { /* Error branch */
             perror("Error");
