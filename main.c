@@ -39,5 +39,8 @@ int main(int argc, char **argv)
         /* Free memory */
         free_cmd(cmd);
     }
+    /* Terminate remaining processes */
+    kill(-getpid(), SIGHUP);
+
     return 0;
 }

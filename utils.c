@@ -393,6 +393,8 @@ int execute_command(command *cmd)
     }
     else if (strcmp(cmd->argv[0], "exit") == 0) {
         free_cmd(cmd);
+        /* Terminate remaining processes */
+        kill(-getpid(), SIGHUP);
         exit(0);
     }
     else {
